@@ -1,0 +1,8 @@
+# IDE Directories
+.idea
+.vscode
+
+# Files
+*.o
+*.out
+.DS_STORE
