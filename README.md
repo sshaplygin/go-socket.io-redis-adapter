@@ -1,3 +1,3 @@
-# Go-socket.io-redis-adapter
+# go-socket.io-redis-adapter
 
 Notice: only for v2 go-socket.io

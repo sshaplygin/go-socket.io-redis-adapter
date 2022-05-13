@@ -2,16 +2,18 @@ package go_socket_io_redis_adapter
 
 import (
 	"fmt"
-	socketio "github.com/googollee/go-socket.io"
 
 	"github.com/gomodule/redigo/redis"
 )
 
 type Adapter struct {
+	pubConn *redis.PubSubConn
+	subConn *redis.PubSubConn
+
 	opts *Options
 }
 
-// NewAdapter create adapter
+// NewAdapter create new redis adapter. This method used for client API in main function.
 func NewAdapter(opts ...OptionsFunc) (*Adapter, error) {
 	a := &Adapter{
 		opts: NewOptions(),
@@ -26,37 +28,26 @@ func NewAdapter(opts ...OptionsFunc) (*Adapter, error) {
 		return nil, err
 	}
 
+	a.subConn = &redis.PubSubConn{Conn: conn}
+	a.pubConn = &redis.PubSubConn{Conn: conn}
+
 	return a, conn.Close()
 }
 
-func (a *Adapter) NewBroadcast(nsp string) *redisBroadcast {
-	addr := a.opts.Addr
-	pub, err := redis.Dial(a.opts.Network, addr)
+// NewBroadcast create broadcast for inner server API.
+func (a *Adapter) NewBroadcast(nsp string) (*redisBroadcast, error) {
+	err := a.subConn.PSubscribe(fmt.Sprintf("%s#%s#*", a.opts.Prefix, nsp))
 	if err != nil {
-		//todo write to log message
-		return nil, err
-	}
-
-	sub, err := redis.Dial(a.opts.Network, addr)
-	if err != nil {
-		//todo write to log message
-		return nil, err
-	}
-
-	subConn := &redis.PubSubConn{Conn: sub}
-	pubConn := &redis.PubSubConn{Conn: pub}
-
-	if err = subConn.PSubscribe(fmt.Sprintf("%s#%s#*", a.opts.Prefix, nsp)); err != nil {
-		//todo write to log message
 		return nil, err
 	}
 
 	uid := newV4UUID()
+
 	rbc := &redisBroadcast{
-		rooms:      make(map[string]map[string]socketio.Conn),
+		rooms:      make(map[string]map[string]Conn),
 		requests:   make(map[string]interface{}),
-		sub:        subConn,
-		pub:        pubConn,
+		sub:        a.subConn,
+		pub:        a.pubConn,
 		key:        fmt.Sprintf("%s#%s#%s", a.opts.Prefix, nsp, uid),
 		reqChannel: fmt.Sprintf("%s-request#%s", a.opts.Prefix, nsp),
 		resChannel: fmt.Sprintf("%s-response#%s", a.opts.Prefix, nsp),
@@ -64,14 +55,14 @@ func (a *Adapter) NewBroadcast(nsp string) *redisBroadcast {
 		uid:        uid,
 	}
 
-	if err = subConn.Subscribe(rbc.reqChannel, rbc.resChannel); err != nil {
-		//todo write to log message
+	err = a.subConn.Subscribe(rbc.reqChannel, rbc.resChannel)
+	if err != nil {
 		return nil, err
 	}
 
 	go rbc.dispatch()
 
-	return rbc
+	return rbc, nil
 }
 
 func (a *Adapter) GetName() string {

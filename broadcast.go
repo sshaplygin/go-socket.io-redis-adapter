@@ -7,8 +7,6 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
-
-	socketio "github.com/googollee/go-socket.io"
 )
 
 // redisBroadcast gives Join, Leave & BroadcastTO server API support to socket.io along with room management
@@ -25,7 +23,7 @@ type redisBroadcast struct {
 
 	requests map[string]interface{}
 
-	rooms map[string]map[string]socketio.Conn
+	rooms map[string]map[string]Conn
 
 	lock sync.RWMutex
 }
@@ -36,17 +34,25 @@ func (bc *redisBroadcast) AllRooms() []string {
 		RequestType: allRoomReqType,
 		RequestID:   newV4UUID(),
 	}
-	reqJSON, _ := json.Marshal(&req)
+
+	reqJSON, err := json.Marshal(&req)
+	if err != nil {
+		return nil
+	}
 
 	req.rooms = make(map[string]bool)
-	numSub, _ := bc.getNumSub(bc.reqChannel)
+	numSub, err := bc.getNumSub(bc.reqChannel)
+	if err != nil {
+		return nil
+	}
+
 	req.numSub = numSub
 	req.done = make(chan bool, 1)
 
 	bc.requests[req.RequestID] = &req
-	_, err := bc.pub.Conn.Do("PUBLISH", bc.reqChannel, reqJSON)
+	_, err = bc.pub.Conn.Do("PUBLISH", bc.reqChannel, reqJSON)
 	if err != nil {
-		return []string{} // if error occurred,return empty
+		return nil
 	}
 
 	<-req.done
@@ -57,23 +63,24 @@ func (bc *redisBroadcast) AllRooms() []string {
 	}
 
 	delete(bc.requests, req.RequestID)
+
 	return rooms
 }
 
 // Join joins the given connection to the redisBroadcast room.
-func (bc *redisBroadcast) Join(room string, connection socketio.Conn) {
+func (bc *redisBroadcast) Join(room string, connection Conn) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
 	if _, ok := bc.rooms[room]; !ok {
-		bc.rooms[room] = make(map[string]socketio.Conn)
+		bc.rooms[room] = make(map[string]Conn)
 	}
 
 	bc.rooms[room][connection.ID()] = connection
 }
 
 // Leave leaves the given connection from given room (if exist)
-func (bc *redisBroadcast) Leave(room string, connection socketio.Conn) {
+func (bc *redisBroadcast) Leave(room string, connection Conn) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
@@ -87,7 +94,7 @@ func (bc *redisBroadcast) Leave(room string, connection socketio.Conn) {
 }
 
 // LeaveAll leaves the given connection from all rooms.
-func (bc *redisBroadcast) LeaveAll(connection socketio.Conn) {
+func (bc *redisBroadcast) LeaveAll(connection Conn) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 
@@ -138,7 +145,7 @@ func (bc *redisBroadcast) SendAll(event string, args ...interface{}) {
 }
 
 // ForEach sends data returned by DataFunc, if room does not exits sends nothing.
-func (bc *redisBroadcast) ForEach(room string, f socketio.EachFunc) {
+func (bc *redisBroadcast) ForEach(room string, f EachFunc) {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 
@@ -189,7 +196,7 @@ func (bc *redisBroadcast) Len(room string) int {
 // Rooms gives the list of all the rooms available for redisBroadcast in case of
 // no connection is given, in case of a connection is given, it gives
 // list of all the rooms the connection is joined to.
-func (bc *redisBroadcast) Rooms(connection socketio.Conn) []string {
+func (bc *redisBroadcast) Rooms(connection Conn) []string {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 
@@ -427,7 +434,7 @@ func (bc *redisBroadcast) allRooms() []string {
 	return rooms
 }
 
-func (bc *redisBroadcast) getRoomsByConn(connection socketio.Conn) []string {
+func (bc *redisBroadcast) getRoomsByConn(connection Conn) []string {
 	var rooms []string
 
 	for room, connections := range bc.rooms {
