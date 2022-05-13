@@ -1,4 +1,4 @@
-package go_socket_io_redis_adapter
+package go_socketio_redis_adapter
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ type Adapter struct {
 // NewAdapter create new redis adapter. This method used for client API in main function.
 func NewAdapter(opts ...OptionsFunc) (*Adapter, error) {
 	a := &Adapter{
-		opts: NewOptions(),
+		opts: newOptions(),
 	}
 
 	for _, o := range opts {
@@ -31,7 +31,7 @@ func NewAdapter(opts ...OptionsFunc) (*Adapter, error) {
 	a.subConn = &redis.PubSubConn{Conn: conn}
 	a.pubConn = &redis.PubSubConn{Conn: conn}
 
-	return a, conn.Close()
+	return a, nil
 }
 
 // NewBroadcast create broadcast for inner server API.
@@ -65,6 +65,14 @@ func (a *Adapter) NewBroadcast(nsp string) (*redisBroadcast, error) {
 	return rbc, nil
 }
 
-func (a *Adapter) GetName() string {
-	return "redis-adapter"
+func (a *Adapter) Close() error {
+	if err := a.subConn.Close(); err != nil {
+		return err
+	}
+
+	if err := a.pubConn.Close(); err != nil {
+		return nil
+	}
+
+	return nil
 }

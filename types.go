@@ -1,15 +1,15 @@
-package go_socket_io_redis_adapter
+package go_socketio_redis_adapter
 
 import "sync"
 
-// request types
+// request types.
 const (
 	roomLenReqType   = "0"
 	clearRoomReqType = "1"
 	allRoomReqType   = "2"
 )
 
-// request structs
+// request structs.
 type roomLenRequest struct {
 	RequestType string
 	RequestID   string
@@ -19,6 +19,13 @@ type roomLenRequest struct {
 	connections int        `json:"-"`
 	mutex       sync.Mutex `json:"-"`
 	done        chan bool  `json:"-"`
+}
+
+// response struct.
+type roomLenResponse struct {
+	RequestType string
+	RequestID   string
+	Connections int
 }
 
 type clearRoomRequest struct {
@@ -36,13 +43,6 @@ type allRoomRequest struct {
 	msgCount    int             `json:"-"`
 	mutex       sync.Mutex      `json:"-"`
 	done        chan bool       `json:"-"`
-}
-
-// response struct
-type roomLenResponse struct {
-	RequestType string
-	RequestID   string
-	Connections int
 }
 
 type allRoomResponse struct {

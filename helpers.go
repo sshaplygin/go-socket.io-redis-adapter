@@ -1,4 +1,4 @@
-package go_socket_io_redis_adapter
+package go_socketio_redis_adapter
 
 import "github.com/gofrs/uuid"
 

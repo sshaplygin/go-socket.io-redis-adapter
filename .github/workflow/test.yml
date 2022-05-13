@@ -1,0 +1,65 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+      - release/**
+  pull_request:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: Unit
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        go: [ "1.18", "1.17", "1.16", "1.15", "1.14", "1.13" ]
+        os: [ ubuntu, windows, macos ]
+      fail-fast: false
+    env:
+      GO111MODULE: "on"
+      GOFLAGS: "-mod=readonly"
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v2
+        with:
+          # In order:
+          # * Module download cache
+          # * Build cache (Linux)
+          # * Build cache (Mac)
+          # * Build cache (Windows)
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            %LocalAppData%\go-build
+          key: ${{ runner.os }}-go-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go }}-
+            ${{ runner.os }}-go-
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Check go.mod Tidiness
+        run: go mod tidy -go=1.18 -compat=1.16 && git diff --exit-code
+        if: ${{ matrix.go == '1.18' }}
+      - name: Test
+        run: go test -count=1 ./...
+      - name: Test (race)
+        run: go test -count=1 -race ./...
+        # The race detector adds considerable runtime overhead. To save time on
+        # pull requests, only run this step for a single job in the matrix. For
+        # all other workflow triggers (e.g., pushes to a release branch) run
+        # this step for the whole matrix.
+        if: ${{ github.event_name != 'pull_request' || (matrix.go == '1.18' && matrix.os == 'ubuntu') }}
+    timeout-minutes: 5

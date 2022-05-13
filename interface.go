@@ -1,4 +1,4 @@
-package go_socket_io_redis_adapter
+package go_socketio_redis_adapter
 
 import (
 	"io"
@@ -7,10 +7,10 @@ import (
 	"net/url"
 )
 
-// EachFunc typed for each callback function
+// EachFunc typed for each callback function.
 type EachFunc func(Conn)
 
-// Conn is a connection in go-socket.io
+// Conn is a connection in go-socket.io.
 type Conn interface {
 	io.Closer
 	Namespace

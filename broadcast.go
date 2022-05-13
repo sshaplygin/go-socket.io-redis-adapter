@@ -1,4 +1,4 @@
-package go_socket_io_redis_adapter
+package go_socketio_redis_adapter
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 )
 
 // redisBroadcast gives Join, Leave & BroadcastTO server API support to socket.io along with room management
-// map of rooms where each room contains a map of connection id to connections in that room
+// map of rooms where each room contains a map of connection id to connections in that room.
 type redisBroadcast struct {
 	pub *redis.PubSubConn
 	sub *redis.PubSubConn
@@ -79,7 +79,7 @@ func (bc *redisBroadcast) Join(room string, connection Conn) {
 	bc.rooms[room][connection.ID()] = connection
 }
 
-// Leave leaves the given connection from given room (if exist)
+// Leave leaves the given connection from given room (if exist).
 func (bc *redisBroadcast) Leave(room string, connection Conn) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
